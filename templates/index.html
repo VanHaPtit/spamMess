@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống nhận diện Spam</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Phần mềm nhận diện Tin nhắn rác</h2>
+
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <form action="/check" method="post">
+            {% csrf_token %}
+            <label for="rawdata">Nội dung tin nhắn:</label>
+            <textarea name="rawdata" id="rawdata" placeholder="Nhập tin nhắn cần kiểm tra tại đây..."
+                rows="5">{{ message }}</textarea>
+
+            <div style="margin-top: 15px;">
+                <label>Chọn thuật toán phân tích:</label>
+                <select name="algo">
+                    <option value="Algo-1">SVM Model (Algo-1)</option>
+                    <option value="Algo-2">Custom Model (Algo-2)</option>
+                </select>
+
+
+
+            </div>
+
+            <button type="submit">Kiểm tra ngay</button>
+        </form>
+
+        {% if result %}
+        <div class="result-box">
+            <h3>Kết quả phân tích:</h3>
+            <p>Nội dung: <i>{{ message }}</i></p>
+            <p>Thuật toán đã dùng: <b>{{ algo_used }}</b></p>
+            <p>Phân loại:
+                <b style="color: {% if prediction == 1 %}red{% else %}green{% endif %};">
+                    {{ result }}
+                </b>
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>
