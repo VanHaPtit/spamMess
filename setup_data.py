@@ -81,7 +81,7 @@ import kagglehub
 
 def get_or_clone_dataset():
     # 1. Thiết lập đường dẫn cùng cấp trong thư mục dự án
-    base_dir = r'D:\Slide 28 tech\Kì 2 năm 4\Chuyên đề HTTT'
+    base_dir = r'C:\Users\hoang\OneDrive\Desktop\spam-mes\spamMess'
     en_file_path = os.path.join(base_dir, 'spam_data.csv')
     vi_file_path = os.path.join(base_dir, 'spamDataVN.csv')
 

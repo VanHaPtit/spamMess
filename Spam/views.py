@@ -76,8 +76,10 @@ import os
 import joblib
 import re
 
-# 1. Cấu hình đường dẫn và hằng số
-MODEL_DIR = 'Spam'
+# 1. Cấu hình đường dẫn tuyệt đối (Sửa tại đây)
+BASE_DIR_PATH = r"C:\Users\hoang\OneDrive\Desktop\spam-mes\spamMess"
+MODEL_DIR = os.path.join(BASE_DIR_PATH, 'Spam')
+
 # Danh sách tiền tố rác phổ biến tại Việt Nam
 SPAM_PREFIXES = ['qc', 'tb', 'quang cao', 'thong bao', 'ad']
 
@@ -87,15 +89,13 @@ def index(request):
 
 def preprocess_text(text):
     """Làm sạch văn bản để mô hình xử lý chuẩn xác hơn"""
-    # Chuyển về chữ thường để không phân biệt 'QC' và 'qc'
     text = text.lower().strip()
-    # Xóa các ký tự đặc biệt không cần thiết
+    # Xóa các ký tự đặc biệt
     text = re.sub(r'[^\w\s]', '', text)
     return text
 
 def check_heuristics(text):
     """Kiểm tra nhanh các dấu hiệu rác đặc trưng của Việt Nam"""
-    # Nếu tin nhắn bắt đầu bằng các tiền tố quảng cáo, đánh dấu là Spam ngay
     for prefix in SPAM_PREFIXES:
         if text.startswith(prefix):
             return 1  # 1 là nhãn Spam
@@ -104,38 +104,37 @@ def check_heuristics(text):
 def checkSpam(request):
     """Xử lý dự đoán tin nhắn từ giao diện"""
     if request.method == 'POST':
-        # Lấy nội dung tin nhắn và thuật toán được chọn
         raw_message = request.POST.get('rawdata', '')
         algo_choice = request.POST.get('algo', 'Algo-1')
         
         if not raw_message:
             return render(request, 'index.html', {'error': 'Vui lòng nhập nội dung!'})
 
-        # Bước 1: Tiền xử lý văn bản
+        # Bước 1: Tiền xử lý
         clean_message = preprocess_text(raw_message)
 
-        # Bước 2: Kiểm tra bằng quy tắc (Heuristics) - Tối ưu cho Tiếng Việt
+        # Bước 2: Kiểm tra Heuristics
         prediction = check_heuristics(clean_message)
 
-        # Bước 3: Nếu quy tắc chưa xác định được, dùng mô hình Machine Learning
+        # Bước 3: Machine Learning
         if prediction is None:
             model_name = 'mySVCModel1.pkl' if algo_choice == 'Algo-1' else 'myModel.pkl'
             model_path = os.path.join(MODEL_DIR, model_name)
 
+            # Kiểm tra file mô hình có tồn tại không
             if not os.path.exists(model_path):
                 return render(request, 'index.html', {
-                    'error': f'Mô hình {algo_choice} chưa được huấn luyện!',
+                    'error': f'Không tìm thấy file mô hình tại: {model_path}. Hãy chạy train_system.py trước!',
                     'message': raw_message
                 })
 
             try:
-                # Tải Pipeline bao gồm cả TF-IDF và thuật toán
                 model = joblib.load(model_path)
                 prediction = model.predict([clean_message])[0]
             except Exception as e:
                 return render(request, 'index.html', {'error': f'Lỗi khi tải mô hình: {e}'})
 
-        # Bước 4: Trả kết quả về giao diện
+        # Bước 4: Trả kết quả
         result = "TIN NHẮN RÁC (Spam)" if prediction == 1 else "TIN NHẮN THÔNG THƯỜNG (Ham)"
         
         return render(request, 'index.html', {

@@ -30,64 +30,81 @@
 import pandas as pd
 import joblib
 import os
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report, accuracy_score
 
-# 1. Cấu hình đường dẫn
-BASE_DIR = r'D:\Slide 28 tech\Kì 2 năm 4\Chuyên đề HTTT'
-EN_DATA = os.path.join(BASE_DIR, 'spam_data.csv')
-VI_DATA = os.path.join(BASE_DIR, 'spamDataVN.csv')
+# 1. Cấu hình đường dẫn tuyệt đối
+BASE_DIR = r"C:\Users\hoang\OneDrive\Desktop\spam-mes\spamMess"
+DATA_PATH = os.path.join(BASE_DIR, 'spam_data.csv')
+MODEL_SAVE_DIR = os.path.join(BASE_DIR, 'Spam')
 
-def train_and_save_models():
-    # 2. Đọc dữ liệu từ cả hai nguồn
-    if not os.path.exists(EN_DATA) or not os.path.exists(VI_DATA):
-        print("LỖI: Thiếu file dữ liệu (Anh hoặc Việt). Vui lòng chạy setup_data.py trước!")
+def train_and_evaluate():
+    # Kiểm tra file dữ liệu
+    if not os.path.exists(DATA_PATH):
+        print(f"Lỗi: Không tìm thấy file {DATA_PATH}. Hãy chạy setup_data.py trước!")
         return
 
+    # 2. Nạp dữ liệu gộp (Anh + Việt)
     print("--- Đang nạp dữ liệu song ngữ... ---")
-    df_en = pd.read_csv(EN_DATA)
-    df_vi = pd.read_csv(VI_DATA)
+    df = pd.read_csv(DATA_PATH)
+    X = df['text'].astype(str)
+    y = df['label']
+    print(f"Tổng mẫu: {len(df)} (Ham: {len(df[y==0])}, Spam: {len(df[y==1])})")
 
-    # 3. Gộp dữ liệu
-    df_combined = pd.concat([df_en, df_vi], ignore_index=True)
-    
-    # Loại bỏ các dòng trống để tránh lỗi Pipeline
-    df_combined = df_combined.dropna(subset=['text', 'label'])
-    
-    X = df_combined['text'].astype(str)
-    y = df_combined['label']
+    # 3. Chia dữ liệu thành 80% để học và 20% để kiểm tra thực tế
+    # Đây là bước quan trọng để lấy chỉ số báo cáo với giáo viên
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print(f"Tổng mẫu huấn luyện: {len(df_combined)} (Anh: {len(df_en)}, Việt: {len(df_vi)})")
-
-    # 4. Xây dựng Pipeline
-    # TF-IDF giúp máy hiểu trọng số từ ngữ của cả 2 ngôn ngữ
-    model1 = Pipeline([
-        ('tfidf', TfidfVectorizer(ngram_range=(1, 2))), # Sử dụng cả từ đơn và từ ghép
-        ('svc', SVC(kernel='linear', probability=True))
-    ])
-
-    model2 = Pipeline([
+    # 4. Huấn luyện mô hình 1: Naive Bayes (Algo-2)
+    print("\n--- Đang huấn luyện Algo-2 (Naive Bayes)... ---")
+    nb_pipeline = Pipeline([
         ('tfidf', TfidfVectorizer()),
         ('nb', MultinomialNB())
     ])
-
-    # 5. Huấn luyện
-    print("--- Đang huấn luyện mô hình (có thể mất vài phút)... ---")
-    model1.fit(X, y)
-    model2.fit(X, y)
-
-    # 6. Lưu mô hình vào thư mục dự án
-    os.makedirs('Spam', exist_ok=True)
-    joblib.dump(model1, 'Spam/mySVCModel1.pkl')
-    joblib.dump(model2, 'Spam/myModel.pkl')
+    nb_pipeline.fit(X_train, y_train)
     
-    print("--- CHÚC MỪNG: Đã hoàn thiện 2 file mô hình song ngữ! ---")
+    # Đánh giá Algo-2
+    y_pred_nb = nb_pipeline.predict(X_test)
+    acc_nb = accuracy_score(y_test, y_pred_nb)
+
+    # 5. Huấn luyện mô hình 2: SVC (Algo-1)
+    print("--- Đang huấn luyện Algo-1 (SVC - Có thể mất 1-2 phút)... ---")
+    svc_pipeline = Pipeline([
+        ('tfidf', TfidfVectorizer()),
+        ('svc', SVC(kernel='linear', C=1.0))
+    ])
+    svc_pipeline.fit(X_train, y_train)
+    
+    # Đánh giá Algo-1
+    y_pred_svc = svc_pipeline.predict(X_test)
+    acc_svc = accuracy_score(y_test, y_pred_svc)
+
+    # 6. Hiển thị báo cáo kết quả (Dùng số liệu này để đưa vào Slide/Báo cáo)
+    print("\n" + "="*50)
+    print("KẾT QUẢ ĐÁNH GIÁ HIỆU SUẤT THỰC TẾ")
+    print("="*50)
+    print(f"Thuật toán Algo-2 (Naive Bayes) đạt độ chính xác: {acc_nb*100:.2f}%")
+    print(classification_report(y_test, y_pred_nb, target_names=['Ham', 'Spam']))
+    
+    print("-" * 30)
+    print(f"Thuật toán Algo-1 (SVC) đạt độ chính xác: {acc_svc*100:.2f}%")
+    print(classification_report(y_test, y_pred_svc, target_names=['Ham', 'Spam']))
+    print("="*50)
+
+    # 7. Lưu các mô hình vào thư mục Spam
+    if not os.path.exists(MODEL_SAVE_DIR):
+        os.makedirs(MODEL_SAVE_DIR)
+        
+    joblib.dump(nb_pipeline, os.path.join(MODEL_SAVE_DIR, 'myModel.pkl'))
+    joblib.dump(svc_pipeline, os.path.join(MODEL_SAVE_DIR, 'mySVCModel1.pkl'))
+    print("\n--- Đã cập nhật 2 file mô hình thành công! ---")
 
 if __name__ == "__main__":
-    train_and_save_models()
-
+    train_and_evaluate()
 
 
 
