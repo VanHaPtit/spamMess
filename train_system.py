@@ -38,7 +38,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import classification_report, accuracy_score
 
 # 1. Cấu hình đường dẫn tuyệt đối
-BASE_DIR = r"C:\Users\hoang\OneDrive\Desktop\spam-mes\spamMess"
+BASE_DIR = r"C:\Users\hoang\OneDrive\Desktop\spamMes\spamMess"
 DATA_PATH = os.path.join(BASE_DIR, 'spam_data.csv')
 MODEL_SAVE_DIR = os.path.join(BASE_DIR, 'Spam')
 
