@@ -77,76 +77,41 @@ import requests
 import zipfile
 import io
 import os
-import kagglehub
 from pathlib import Path
 
 def get_or_clone_dataset():
     # 1. Thiết lập đường dẫn cùng cấp trong thư mục dự án
     base_dir = Path(__file__).resolve().parent
     en_file_path = os.path.join(base_dir, 'spam_data.csv')
-    vi_file_path = os.path.join(base_dir, 'spamDataVN.csv')
 
-    print("--- Bắt đầu quy trình thu thập dữ liệu tách biệt... ---")
+    print("--- Bắt đầu quy trình thu thập dữ liệu Tiếng Anh ---")
 
     # --- PHẦN 1: THU THẬP & GHI DỮ LIỆU TIẾNG ANH (UCI) ---
     if not os.path.exists(en_file_path):
         try:
-            print("Đang tải dữ liệu Tiếng Anh từ UCI...")
+            print("Đang tải dữ liệu Tiếng Anh chuẩn từ UCI...")
             url_uci = "https://archive.ics.uci.edu/ml/machine-learning-databases/00228/smsspamcollection.zip"
-            r = requests.get(url_uci, timeout=10)
+            r = requests.get(url_uci, timeout=15)
             z = zipfile.ZipFile(io.BytesIO(r.content))
+            
+            # Đọc file từ zip và chuẩn hóa cột
             df_en = pd.read_csv(z.open('SMSSpamCollection'), sep='\t', names=['label', 'text'])
             df_en['label'] = df_en['label'].map({'spam': 1, 'ham': 0})
             
+            # Xử lý làm sạch sơ bộ (loại bỏ dòng trống và trùng lặp)
+            df_en = df_en.dropna().drop_duplicates()
+            
             # Ghi vào file spam_data.csv
             df_en.to_csv(en_file_path, index=False, encoding='utf-8')
-            print(f"-> Đã ghi {len(df_en)} mẫu Tiếng Anh vào {en_file_path}")
+            print(f"-> Thành công! Đã lưu {len(df_en)} mẫu Tiếng Anh sạch vào {en_file_path}")
         except Exception as e:
-            print(f"Lỗi khi tải UCI: {e}")
+            print(f"Lỗi khi tải hoặc xử lý dữ liệu: {e}")
     else:
-        print(f"--- File Tiếng Anh '{en_file_path}' đã tồn tại. ---")
+        print(f"--- File dữ liệu '{en_file_path}' đã sẵn sàng. ---")
 
-    # --- PHẦN 2: THU THẬP & GHI DỮ LIỆU TIẾNG VIỆT (KAGGLE) ---
-    if not os.path.exists(vi_file_path):
-        try:
-            print("Đang tải dữ liệu Tiếng Việt từ Kaggle...")
-            path_vi = kagglehub.dataset_download("victorhoward2/vietnamese-spam-post-in-social-network")
-            files = [f for f in os.listdir(path_vi) if f.endswith('.csv')]
-            
-            if files:
-                df_raw_vi = pd.read_csv(os.path.join(path_vi, files[0]))
-                
-                # Xử lý tên cột linh hoạt dựa trên file Kaggle
-                df_vi = pd.DataFrame()
-                df_vi['text'] = df_raw_vi['content'] if 'content' in df_raw_vi.columns else df_raw_vi.iloc[:, 1]
-                
-                # Chuẩn hóa nhãn để không bị mất dữ liệu khi mapping
-                label_col = 'category' if 'category' in df_raw_vi.columns else df_raw_vi.columns[0]
-                df_vi['label'] = df_raw_vi[label_col].astype(str).str.lower().map({
-                    'spam': 1, '1': 1, '1.0': 1,
-                    'ham': 0, '0': 0, '0.0': 0
-                })
-                
-                # Ghi vào file spamDataVN.csv với encoding cho Tiếng Việt
-                df_vi.dropna().to_csv(vi_file_path, index=False, encoding='utf-8-sig')
-                print(f"-> Đã ghi {len(df_vi)} mẫu Tiếng Việt vào {vi_file_path}")
-            else:
-                print("Không tìm thấy file CSV trong Dataset Kaggle.")
-        except Exception as e:
-            print(f"Lỗi khi tải Kaggle: {e}")
-    else:
-        print(f"--- File Tiếng Việt '{vi_file_path}' đã tồn tại. ---")
-
-    # --- PHẦN 3: ĐỌC VÀ XỬ LÝ GỘP DỮ LIỆU ---
-    print("\n--- Tiến hành đọc và xử lý gộp 2 file dữ liệu... ---")
-    df_en_final = pd.read_csv(en_file_path)
-    df_vi_final = pd.read_csv(vi_file_path)
-
-    df_combined = pd.concat([df_en_final, df_vi_final], ignore_index=True).dropna()
-    
-    print(f"Tổng mẫu sau khi gộp: {len(df_combined)}")
-    print("Dữ liệu sẵn sàng cho việc huấn luyện.")
-    return df_combined
+    # Đọc lại để kiểm tra và trả về dữ liệu (dùng cho train_system.py)
+    df_final = pd.read_csv(en_file_path)
+    return df_final
 
 if __name__ == "__main__":
     get_or_clone_dataset()

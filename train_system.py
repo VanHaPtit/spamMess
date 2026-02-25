@@ -38,7 +38,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import classification_report, accuracy_score
 from pathlib import Path
 
-# 1. Cấu hình đường dẫn
+# 1. Cấu hình đường dẫn linh hoạt
 BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = os.path.join(BASE_DIR, 'spam_data.csv')
 MODEL_SAVE_DIR = os.path.join(BASE_DIR, 'Spam')
@@ -49,53 +49,64 @@ def train_and_evaluate():
         print(f"Lỗi: Không tìm thấy file {DATA_PATH}. Hãy chạy setup_data.py trước!")
         return
 
-    # 2. Nạp dữ liệu gộp (Anh + Việt)
-    print("--- Đang nạp dữ liệu song ngữ... ---")
+    # 2. Nạp dữ liệu Tiếng Anh (UCI)
+    print("--- Đang nạp dữ liệu huấn luyện (English)... ---")
     df = pd.read_csv(DATA_PATH)
     X = df['text'].astype(str)
     y = df['label']
     print(f"Tổng mẫu: {len(df)} (Ham: {len(df[y==0])}, Spam: {len(df[y==1])})")
 
-    # 3. Chia dữ liệu thành 80% để học và 20% để kiểm tra thực tế
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # 3. Chia dữ liệu thành 80% để học và 20% để kiểm tra
+    # stratify=y giúp đảm bảo tỉ lệ Spam/Ham cân bằng ở cả 2 tập học và thi
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
 
-    # 4. Huấn luyện mô hình 1: Naive Bayes (Algo-2)
+    # 4. Cấu hình TF-IDF tối ưu chuyên biệt cho Tiếng Anh
+    tfidf_english = TfidfVectorizer(
+        stop_words=None,
+        ngram_range=(1, 3),
+        max_df=1.0,
+        min_df=1,
+        sublinear_tf=True,
+        token_pattern=r"\b\w\w+\b|(?<!\w)\$|(?<!\w)!"
+    )
+
+    # 5. Huấn luyện mô hình 1: Naive Bayes (Algo-2)
     print("\n--- Đang huấn luyện Algo-2 (Naive Bayes)... ---")
     nb_pipeline = Pipeline([
-        ('tfidf', TfidfVectorizer()),
-        ('nb', MultinomialNB())
+        ('tfidf', tfidf_english),
+        ('nb', MultinomialNB(alpha=0.001)) # Alpha cực nhỏ giúp nhạy bén với từ mới
     ])
     nb_pipeline.fit(X_train, y_train)
     
-    # Đánh giá Algo-2
     y_pred_nb = nb_pipeline.predict(X_test)
     acc_nb = accuracy_score(y_test, y_pred_nb)
 
-    # 5. Huấn luyện mô hình 2: SVC (Algo-1)
-    print("--- Đang huấn luyện Algo-1 (SVC - Có thể mất 1-2 phút)... ---")
+    # 6. Huấn luyện mô hình 2: SVC (Algo-1) - Khuyên dùng cho Tiếng Anh
+    print("--- Đang huấn luyện Algo-1 (SVC)... ---")
     svc_pipeline = Pipeline([
-        ('tfidf', TfidfVectorizer()),
-        ('svc', SVC(kernel='linear', C=1.0))
+        ('tfidf', tfidf_english),
+        ('svc', SVC(kernel='linear', C=0.5, class_weight='balanced', probability=True)) # Giảm C xuống để mô hình chấp nhận sai số tốt hơn
     ])
     svc_pipeline.fit(X_train, y_train)
     
-    # Đánh giá Algo-1
     y_pred_svc = svc_pipeline.predict(X_test)
     acc_svc = accuracy_score(y_test, y_pred_svc)
 
-    # 6. Hiển thị báo cáo kết quả
+    # 7. Hiển thị báo cáo kết quả (Sử dụng số liệu này để viết báo cáo đồ án)
     print("\n" + "="*50)
-    print("KẾT QUẢ ĐÁNH GIÁ HIỆU SUẤT THỰC TẾ")
+    print("KẾT QUẢ ĐÁNH GIÁ HIỆU SUẤT (ENGLISH ONLY)")
     print("="*50)
-    print(f"Thuật toán Algo-2 (Naive Bayes) đạt độ chính xác: {acc_nb*100:.2f}%")
+    print(f"Thuật toán Algo-2 (Naive Bayes) Accuracy: {acc_nb*100:.2f}%")
     print(classification_report(y_test, y_pred_nb, target_names=['Ham', 'Spam']))
     
     print("-" * 30)
-    print(f"Thuật toán Algo-1 (SVC) đạt độ chính xác: {acc_svc*100:.2f}%")
+    print(f"Thuật toán Algo-1 (SVC) Accuracy: {acc_svc*100:.2f}%")
     print(classification_report(y_test, y_pred_svc, target_names=['Ham', 'Spam']))
     print("="*50)
 
-    # 7. Lưu các mô hình vào thư mục Spam
+    # 8. Lưu các mô hình vào thư mục Spam
     if not os.path.exists(MODEL_SAVE_DIR):
         os.makedirs(MODEL_SAVE_DIR)
         

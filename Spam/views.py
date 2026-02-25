@@ -89,13 +89,12 @@ def index(request):
 
 def preprocess_text(text):
     """Làm sạch văn bản để mô hình xử lý chuẩn xác hơn"""
+    # Giữ lại các ký tự $, %, [, ] vì chúng thường xuất hiện trong tin nhắn rác
     text = text.lower().strip()
-    # Xóa các ký tự đặc biệt
-    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'[^a-z0-9\s$%\[\]]', '', text)
     return text
 
 def check_heuristics(text):
-    """Kiểm tra nhanh các dấu hiệu rác đặc trưng của Việt Nam"""
     for prefix in SPAM_PREFIXES:
         if text.startswith(prefix):
             return 1  # 1 là nhãn Spam
